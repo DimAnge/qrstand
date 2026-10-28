@@ -5,6 +5,8 @@ with your link, a line of text under the code and any words you like.
 
 **Open it here: https://dimange.github.io/qrstand/**
 
+![Five stands made with it, turning](docs/stands.gif)
+
 ![The maker with the starting pink rectangle](docs/app_start.png)
 
 ## What it does
