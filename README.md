@@ -16,7 +16,11 @@ the plate. It prints in **two colours on a single-filament printer**, with one p
 The base is the same for every plate (100 × 50 × 10 mm, one colour). Download it once from the QR Stand page on
 MakerWorld; every plate you make here fits it.
 
-![A plate standing in the base](docs/stand.png)
+| Rectangle | Example shape: wine glass |
+|---|---|
+| ![The pink rectangle standing in the base](docs/stand.png) | ![A wine glass plate, white with wine red, "WINE LIST"](docs/wine.png) |
+
+![The maker with the wine glass example](docs/app_wine.png)
 
 ## How to use it
 
