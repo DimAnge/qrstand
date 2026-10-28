@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR stand maker</title>
+<link rel="icon" href="data:,">
+<!-- Serve this folder: python3 -m http.server 8767 --directory web, then http://localhost:8767/ (not from file://) -->
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<style>
+  @font-face { font-family: Roboto; src: url(vendor/fonts/Roboto.ttf) format('truetype'); font-weight: 100 900; font-display: swap; }
+  :root { color-scheme: dark; --bg: #000; --card: #0b0b0b; --line: #2a2a2a; --text: #f4f4f4; --muted: #8b8b8b;
+          --accent: #2f6bff; --on-accent: #fff; --err: #ff5c5c; --warn: #ffb547; --ok: #4fd18b; --scene: #060606; --dot: #232323; }
+  :root[data-theme=light] { color-scheme: light; --bg: #f4f4f1; --card: #fff; --line: #d8d8d3; --text: #0a0a0a; --muted: #6b6b6b;
+          --accent: #1f5cff; --on-accent: #fff; --err: #c4001d; --warn: #8a5300; --ok: #137a43; --scene: #ebebe6; --dot: #cbcbc5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: .02em; color: var(--text); background: var(--bg); }
+  main { display: grid; grid-template: minmax(0, 1fr) auto / minmax(320px, 400px) 1fr; height: 100vh; height: 100dvh; }
+  form { padding: 18px 18px 0; overflow: auto; }
+  #bar { grid-area: 2 / 1; padding: 12px 18px 14px; border-top: 1px solid var(--line); max-height: 42vh; overflow: auto; }
+  #bar p:empty, #bar ul:empty { display: none; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1, legend, .dot { font-family: Roboto, system-ui, sans-serif; text-transform: uppercase; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: .05em; margin: 0; line-height: 1.1; }
+  .intro { color: var(--muted); margin: 6px 0 0; }
+  fieldset { border: 1px solid var(--line); border-radius: 18px; background: var(--card); margin: 14px 0; padding: 10px 14px 12px; }
+  legend { padding: 0 6px; font-size: 17px; font-weight: 800; letter-spacing: .06em; }
+  label, .lbl { display: block; margin: 10px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  input[type=text], select, textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; text-transform: none; letter-spacing: 0; }
+  textarea { resize: vertical; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .f { display: grid; grid-template-columns: 1fr 70px 22px; align-items: center; gap: 8px; margin-top: 4px; }
+  .f span { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 6px; }
+  .f i { font-style: normal; color: var(--muted); font-size: 11px; }
+  .pair { display: grid; grid-template-columns: auto 70px auto 70px auto; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+  input[type=number] { width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text);
+    font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; margin: 0; }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px; background: var(--accent); border: 0; border-radius: 0; }
+  input[type=range]::-moz-range-thumb { width: 12px; height: 12px; background: var(--accent); border: 0; border-radius: 0; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  input[type=file] { display: block; margin-top: 6px; max-width: 100%; color: var(--muted); font: inherit; text-transform: none; }
+  button { font: inherit; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--text); background: transparent;
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--text); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  #dlPause { font-family: Roboto, system-ui, sans-serif; font-weight: 800; font-size: 17px; width: 100%; padding: 10px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .row { display: flex; gap: 8px; margin-top: 8px; } .row button { flex: 1; }
+  .block { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 4px; }
+  .block .del { float: right; margin-top: 6px; padding: 3px 10px; }
+  legend b { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 13px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .tiles.small { grid-template-columns: repeat(4, 1fr); }
+  .tiles button { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; text-transform: none; letter-spacing: 0; font-size: 12px; }
+  .tiles img { width: 44px; height: 44px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; }
+  .tiles .ico { display: grid; place-items: center; width: 44px; height: 44px; font-style: normal; font-size: 22px; color: var(--muted); }
+  .tiles .ico.rect::before { content: ''; width: 30px; height: 36px; border: 3px solid var(--muted); border-radius: 6px 6px 0 0; }
+  .tiles .star { border-color: var(--accent); } .tiles .star .ico { color: var(--accent); }
+  .drop { display: grid; gap: 2px; justify-items: center; margin-top: 12px; padding: 16px 10px; border: 2px dashed var(--accent); border-radius: 14px;
+    cursor: pointer; text-align: center; text-transform: none; letter-spacing: 0; }
+  .drop b { color: var(--text); font-size: 15px; } .drop:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .tiles [aria-pressed=true] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  details { margin-top: 12px; } summary { cursor: pointer; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  label.check { color: var(--text); }
+  #cols { display: flex; gap: 20px; } #cols label { display: flex; align-items: center; gap: 8px; }
+  .err { color: var(--err); margin: 6px 0; } #warn { color: var(--warn); padding-left: 18px; margin: 0 0 8px; }
+  #scan { margin: 0 0 8px; font-family: Roboto, system-ui, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .05em; text-transform: uppercase; }
+  #scan.ok { color: var(--ok); } #scan.bad { color: var(--err); }
+  #note { color: var(--muted); margin: 0 0 8px; }
+  small { color: var(--muted); display: block; margin-top: 6px; }
+  [hidden] { display: none !important; }
+  #right { grid-area: 1 / 2 / 3 / 3; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  #edit, #view { position: relative; min-height: 0; background: radial-gradient(var(--dot) 1px, transparent 1.3px) 0 0 / 14px 14px, var(--scene); }
+  #edit { border-right: 1px solid var(--line); touch-action: none; }
+  #edit canvas, #view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tip { position: absolute; left: 12px; top: 10px; z-index: 1; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
+  body.drop::after { content: 'Drop your logo here'; position: fixed; inset: 12px; z-index: 5; display: grid; place-items: center; font: 800 28px Roboto, system-ui, sans-serif;
+    text-transform: uppercase; border: 2px dashed var(--accent); border-radius: 20px; background: color-mix(in srgb, var(--bg) 85%, transparent); }
+  @media (max-width: 900px) { main { display: block; height: auto; } #right { grid-template-columns: 1fr; } #edit, #view { height: 60vh; } }
+</style>
+<script>try { if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch {}</script>
+</head>
+<body>
+<main>
+  <form id="f" onsubmit="return false">
+    <div class="top"><h1>QR stand<br>maker</h1><button type="button" id="theme" aria-label="Switch between dark and light">Light</button></div>
+    <p class="intro">Upload your logo and the stand takes its shape, or pick a rectangle. Type your link, download. Two colours with one filament change; every plate fits the same base (on the QR Stand page on MakerWorld). Runs in your browser; nothing is uploaded.</p>
+
+    <fieldset>
+      <legend><b>1</b> Shape</legend>
+      <select id="shape" hidden><option value="rect">Rectangle</option><option value="logo">Your logo</option>
+        <option value="robot">Robot</option><option value="wine">Wine glass</option><option value="paw">Paw</option></select>
+      <div class="tiles" id="shapeTiles">
+        <button type="button" data-v="rect"><i class="ico rect"></i>Rectangle</button>
+        <button type="button" data-v="logo" class="star"><i class="ico up">↑</i>Your logo</button>
+        <button type="button" data-v="example"><img src="shapes/paw.jpeg" alt="">Examples</button>
+      </div>
+      <label id="exampleL">Example <select id="example"><option value="robot">Robot</option><option value="wine">Wine glass</option><option value="paw">Paw</option></select></label>
+      <div id="logoSub">
+        <label class="drop"><input type="file" id="logo" accept="image/*,.svg" hidden>
+          <b id="logoHint">⬆ Upload your logo</b><span id="logoName">PNG, JPG or SVG · or drop it anywhere on the page</span></label>
+        <div id="logoItem">
+          <div class="f"><span>Logo width</span><input type="range" id="logoSize" min="10" max="150" step="0.5" value="50"><input type="number" class="num" data-for="logoSize" step="0.5"><i>mm</i></div>
+          <div class="row"><button type="button" id="logoClear">Remove logo</button></div>
+        </div>
+        <p class="err" id="logoErr" role="alert"></p>
+      </div>
+      <div id="traceSize">
+        <div class="f"><span>Width</span><input type="range" id="width" min="40" max="160" step="0.5" value="100"><input type="number" class="num" data-for="width" step="0.5"><i>mm</i></div>
+      </div>
+      <div id="boxSize" hidden>
+        <div class="f"><span>Width</span><input type="range" id="boxW" min="40" max="160" step="0.5" value="90"><input type="number" class="num" data-for="boxW" step="0.5"><i>mm</i></div>
+        <div class="f"><span>Height</span><input type="range" id="boxH" min="40" max="160" step="0.5" value="100"><input type="number" class="num" data-for="boxH" step="0.5"><i>mm</i></div>
+        <span class="lbl">Frame</span>
+        <select id="frame" hidden><option value="brackets">Brackets</option><option value="line">Line</option><option value="none">None</option></select>
+        <div class="tiles small" id="frameTiles">
+          <button type="button" data-v="brackets">⌜ ⌝ Brackets</button><button type="button" data-v="line">▢ Line</button><button type="button" data-v="none">None</button>
+        </div>
+      </div>
+      <details>
+        <summary>Fine-tune</summary>
+        <div id="traceMore">
+          <div class="f"><span>Border round the shape</span><input type="range" id="border" min="1" max="6" step="0.5" value="2"><input type="number" class="num" data-for="border" step="0.5"><i>mm</i></div>
+          <div class="f"><span>Fill gaps narrower than</span><input type="range" id="close" min="0" max="20" step="0.5" value="10"><input type="number" class="num" data-for="close" step="0.5"><i>mm</i></div>
+          <small>The shape stands on a plain background layer; gaps narrower than this (between an arm and the body, say) are filled.</small>
+        </div>
+        <div id="logoMore">
+          <div class="f"><span>Darkness</span><input type="range" id="thr" min="20" max="240" value="160"><input type="number" class="num" data-for="thr"><i></i></div>
+          <div class="f"><span>Smoothing</span><input type="range" id="blur" min="0" max="8" value="2"><input type="number" class="num" data-for="blur"><i>px</i></div>
+          <label id="mainL"><input type="checkbox" id="main" checked> Only the main figure (drops loose text round it)</label>
+          <label><input type="checkbox" id="inv"> Invert (light lines on a dark background)</label>
+          <div class="pair" id="logoXY">Logo X <input type="number" id="logoX" step="0.5"> Y <input type="number" id="logoY" step="0.5"> mm</div>
+        </div>
+        <div id="boxMore">
+          <div class="f"><span>Top corner radius</span><input type="range" id="radius" min="0" max="20" step="0.5" value="8"><input type="number" class="num" data-for="radius" step="0.5"><i>mm</i></div>
+          <div class="f"><span>Frame line</span><input type="range" id="frameW" min="1" max="4" step="0.5" value="2"><input type="number" class="num" data-for="frameW" step="0.5"><i>mm</i></div>
+        </div>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>2</b> QR code &amp; NFC</legend>
+      <label class="check"><input type="checkbox" id="qrOn" checked> Put a QR code on the plate</label>
+      <div id="qrSub">
+        <select id="profile" hidden><option value="menu">Menu</option><option value="reviews">Reviews</option><option value="wifi">WiFi</option><option value="custom">Custom</option></select>
+        <div class="tiles small" id="profileTiles">
+          <button type="button" data-v="menu">Menu</button><button type="button" data-v="reviews">Reviews</button>
+          <button type="button" data-v="wifi">WiFi</button><button type="button" data-v="custom">Any link</button>
+        </div>
+        <label id="linkL">Link <input type="text" id="link" maxlength="600" spellcheck="false"></label>
+        <div id="wifiSub" hidden>
+          <label>Network name <input type="text" id="ssid" maxlength="64" spellcheck="false"></label>
+          <label>Password <input type="text" id="pass" maxlength="64" spellcheck="false"></label>
+          <label>Security <select id="sec"><option value="WPA">WPA / WPA2 / WPA3</option><option value="WEP">WEP</option><option value="nopass">None (open network)</option></select></label>
+        </div>
+        <label>Text under it <textarea id="qrLabel" rows="2" maxlength="60"></textarea></label>
+        <div class="f"><span>Size</span><input type="range" id="qrSize" min="18" max="70" step="0.5" value="30"><input type="number" class="num" data-for="qrSize" step="0.5"><i>mm</i></div>
+        <small id="qrMin"></small>
+        <details>
+          <summary>Exact place</summary>
+          <div class="pair">Code X <input type="number" id="qrX" step="0.5"> Y <input type="number" id="qrY" step="0.5"> mm</div>
+          <div class="pair">Text X <input type="number" id="labelX" step="0.5"> Y <input type="number" id="labelY" step="0.5"> mm</div>
+          <div class="row"><button type="button" id="labelBack">Put text back under the code</button></div>
+          <small>Or drag the code (blue) and its text (dashed) on the front view. The text follows the code until you move it on its own.</small>
+        </details>
+      </div>
+      <small id="qrOffNote" hidden>No code: the plate carries only your logo and words.</small>
+      <label class="check"><input type="checkbox" id="nfcOn"> Add an NFC tag (tap a phone to open the link)</label>
+      <small id="nfcNote" hidden>A 25 mm round tag (NTAG213 or NTAG215, up to 1.2 mm thick) sits hidden inside the plate: the printer
+        stops at 3.2 mm for you to drop it in. Drag the circle on the front view to place it, and add words such as
+        TAP HERE under <i>Your words</i>. Write your link onto the tag with the free NFC Tools app.</small>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>3</b> Your words</legend>
+      <div id="texts"></div>
+      <div class="row"><button type="button" id="addText">+ Add text</button></div>
+      <small>Each text can be dragged on the front view.</small>
+    </fieldset>
+
+    <fieldset>
+      <legend><b>4</b> Look</legend>
+      <label>Font
+        <select id="font"><option value="vendor/fonts/Poppins-Bold.ttf">Poppins Bold</option>
+          <option value="vendor/fonts/NotoSans-Bold.ttf">Noto Sans Bold (Greek and more)</option></select></label>
+      <div id="cols"><label>Body <input type="color" id="colBody" value="#f55a74"></label><label>Detail <input type="color" id="colDetail" value="#ffffff"></label></div>
+      <small>Shown in the preview and saved in the 3MF files as the two filament colours.</small>
+    </fieldset>
+  </form>
+
+  <div id="right">
+    <div id="edit"><span class="tip">Front of the plate · drag to move</span><canvas id="ed"></canvas></div>
+    <div id="view"><span class="tip">3D · drag to turn</span></div>
+  </div>
+
+  <div id="bar">
+    <p id="scan" aria-live="polite"></p>
+    <p class="err" id="buildErr" role="alert"></p>
+    <ul id="warn" aria-live="polite"></ul>
+    <p id="note" aria-live="polite"></p>
+    <button type="button" id="dlPause" disabled>Download 3MF</button>
+    <div class="row"><button type="button" id="dlAms" disabled>3MF for AMS</button><button type="button" id="dlPlate" disabled>Plate STL</button></div>
+    <small id="howto"></small>
+  </div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+import { parse as parseFont } from './vendor/opentype.module.js';
+import { init } from './core.js';
+import { textRings, place, missingGlyphs, MAX_EDGES } from './shapes.js';
+import { S, PAUSES, PROFILES, FIGURES, wifiText, printable, qrMinSize, qrBorder, inkMask, keepMain, traceFigure, buildPlate, buildBase, project } from './stand.js?v=6';   // ?v: a new address, so browsers that kept the old file (before serve.py) fetch this one
+
+const $ = id => document.getElementById(id);
+const HEAP_LIMIT = 256 * 2 ** 20;               // as on TapStand: the wasm heap only grows, so start a fresh one past this
+let wasm = await init(), font = null, logoImg = null;
+let trace = null, plate = null, base = null;
+const figTraces = {};                           // the ready-made figures, traced once each
+// Where things are, in mm (x from the middle, y up from the base top). null = put it in its default place on the next
+// build; label null = under the code.
+const state = { qr: null, label: null, logo: null, nfc: null, texts: [] };
+let rings = { texts: [], logo: null };          // built text and logo outlines, for dragging
+
+// ---------- sliders with mm boxes ----------
+// Every .num box mirrors its slider; a typed value is kept inside the slider's limits (with a note) and set on it.
+function syncNums() { for (const n of document.querySelectorAll('.num')) if (document.activeElement !== n) n.value = $(n.dataset.for).value; }
+for (const n of document.querySelectorAll('.num')) n.addEventListener('change', () => {
+  const s = $(n.dataset.for), v = +n.value, lo = +s.min, hi = +s.max;
+  if (!Number.isFinite(v)) { n.value = s.value; return; }
+  const c = Math.min(hi, Math.max(lo, v));
+  $('note').textContent = c !== v ? `${n.closest('.f').querySelector('span').textContent}: kept between ${lo} and ${hi}.` : '';
+  s.value = c; n.value = s.value;
+  s.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+// ---------- image -> grey pixels -> trace ----------
+function greyOf(img, sx, sy, sw, sh, side) {
+  const s = side / Math.max(sw, sh), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(sw * s)); c.height = Math.max(1, Math.round(sh * s));
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);       // transparent counts as background
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data, grey = new Uint8Array(c.width * c.height);
+  for (let i = 0; i < grey.length; i++) grey[i] = 0.299 * d[4 * i] + 0.587 * d[4 * i + 1] + 0.114 * d[4 * i + 2];
+  return { grey, w: c.width, h: c.height };
+}
+function traceImg(img, opts, mainOnly) {
+  const nw = img.naturalWidth || 1600, nh = img.naturalHeight || 1600;
+  let box = [0, 0, nw, nh];
+  if (mainOnly) {
+    // first a small pass to find the main figure, then trace just that part at full detail
+    const p = greyOf(img, 0, 0, nw, nh, 800), m = keepMain(inkMask(p.grey, p.w, p.h, opts), p.w, p.h), k = nw / p.w;
+    let x0 = p.w, y0 = p.h, x1 = -1, y1 = -1;
+    for (let i = 0; i < m.length; i++) if (m[i]) { const x = i % p.w, y = (i - x) / p.w; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    if (x1 >= 0) { const pad = 0.04 * Math.max(x1 - x0, y1 - y0); box = [Math.max(0, (x0 - pad) * k), Math.max(0, (y0 - pad) * k), Math.min(nw, (x1 + 1 + pad) * k), Math.min(nh, (y1 + 1 + pad) * k)]; }
+  }
+  const g = greyOf(img, box[0], box[1], box[2] - box[0], box[3] - box[1], 1600);
+  return traceFigure(inkMask(g.grey, g.w, g.h, opts), g.w, g.h, { mainOnly, maxEdges: MAX_EDGES });
+}
+const maskOpts = () => ({ threshold: +$('thr').value, invert: $('inv').checked, blur: +$('blur').value });
+function traceLogo() {
+  trace = null; $('logoErr').textContent = '';
+  if (!logoImg) return;
+  trace = traceImg(logoImg, maskOpts(), kind() === 'logo' && $('main').checked);
+  if (!trace) $('logoErr').textContent = 'No usable shape in this image, or it is too detailed: move the Darkness slider, or use a simpler, high-contrast logo.';
+}
+async function loadFigure(k) {
+  figTraces[k] ??= traceImg(await loadImg(FIGURES[k].file), { threshold: 160, invert: false, blur: 2 }, FIGURES[k].main);
+}
+
+// ---------- settings -> shapes ----------
+const kind = () => $('shape').value;
+const isRect = () => kind() === 'rect';
+const fig = () => FIGURES[kind()];
+// letters the font lacks are left out (the page warns about them), not printed as the font's "missing letter" boxes
+const lines = (text, cap) => font && printable(font, text).trim() ? place(textRings(font, printable(font, text), cap), { cx: 0, cy: 0, flipY: true }).rings : null;
+function qrContent() {
+  if ($('profile').value === 'wifi') return wifiText({ name: $('ssid').value, password: $('pass').value, security: $('sec').value });
+  return $('link').value.trim();
+}
+function shapeOpts() {
+  const t = fig() ? figTraces[kind()] : kind() === 'logo' ? trace : null;
+  if (!isRect()) return t && { kind: 'trace', trace: t, width: +$('width').value, border: +$('border').value, close: +$('close').value };
+  return { kind: 'rect', width: +$('boxW').value, height: +$('boxH').value, radius: +$('radius').value, frame: $('frame').value, frameW: +$('frameW').value };
+}
+const halfOf = rs => {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const r of rs || []) for (const [x, y] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  return x1 < x0 ? [0, 0] : [(x1 - x0) / 2, (y1 - y0) / 2];
+};
+const scale = () => fig() ? +$('width').value / fig().width : 1;
+// Default places: on a figure the code hangs from its qrTop (the robot's sign, the glass's bowl); elsewhere it sits a
+// little above the middle, the logo above it, the texts near the bottom.
+function placeItems(p, qrText, size) {
+  const top = p.height - S.TAB_H, half = qrText ? qrBorder(qrText, size) : size / 2;
+  if (fig()) state.qr ??= { x: r2(fig().qrX * scale()), y: r2(fig().qrTop * scale() - half) };
+  state.qr ??= { x: r2(p.tab.x), y: r2(top * (isRect() ? 0.55 : 0.5)) };
+  state.logo ??= { x: r2(p.tab.x), y: r2(top * ($('qrOn').checked ? 0.85 : 0.5)) };   // without a code the logo goes in the middle
+  state.texts.forEach((t, i) => { if (t.x == null) Object.assign(t, { x: r2(p.tab.x), y: 12 + 9 * i }); });
+  state.nfc ??= $('qrOn').checked ? { ...state.qr } : { x: r2(p.tab.x), y: r2(top * 0.5) };   // behind the code
+}
+const r2 = v => Math.round(v * 2) / 2;
+// Resizing scales the layout instead of starting it over: positions (and sizes, with the width) follow.
+function rescale(fx, fy) {
+  for (const p of [state.qr, state.label, state.logo, state.nfc, ...state.texts]) if (p && p.x != null) { p.x = r2(p.x * fx); p.y = r2(p.y * fy); }
+  for (const t of state.texts) t.h = Math.max(3, Math.round(t.h * fx * 2) / 2);
+  for (const id of ['qrSize', 'logoSize']) $(id).value = +$(id).value * fx;
+}
+
+// ---------- your words: text blocks ----------
+function textBlocks() {
+  $('texts').replaceChildren(...state.texts.map((t, i) => {
+    const d = document.createElement('div'); d.className = 'block';
+    d.innerHTML = `<button type="button" class="del" data-i="${i}">Remove</button>
+      <label>Text ${i + 1} <textarea id="text${i}" rows="2" maxlength="120"></textarea></label>
+      <div class="pair">H <input type="number" id="textH${i}" min="3" max="30" step="0.5"> mm &nbsp; </div>
+      <div class="pair">X <input type="number" id="textX${i}" step="0.5"> Y <input type="number" id="textY${i}" step="0.5"> mm</div>`;
+    d.querySelector('textarea').value = t.text;
+    d.querySelector('textarea').addEventListener('input', e => { t.text = e.target.value; soon(rebuild); });
+    d.querySelector(`#textH${i}`).value = t.h;
+    d.querySelector(`#textH${i}`).addEventListener('change', e => { t.h = Math.min(30, Math.max(3, +e.target.value || t.h)); e.target.value = t.h; rebuild(); });
+    for (const a of ['X', 'Y']) d.querySelector(`#text${a}${i}`).addEventListener('change', e => { if (Number.isFinite(+e.target.value)) { t[a.toLowerCase()] = +e.target.value; rebuild(); } });
+    d.querySelector('.del').addEventListener('click', () => { state.texts.splice(i, 1); textBlocks(); rebuild(); });
+    return d;
+  }));
+}
+$('addText').addEventListener('click', () => { state.texts.push({ text: 'YOUR TEXT', h: 6, x: null, y: null }); textBlocks(); rebuild(); });
+
+// ---------- build ----------
+async function rebuild() {
+  syncNums();
+  const wifi = $('profile').value === 'wifi';
+  $('wifiSub').hidden = !wifi; $('linkL').hidden = wifi;
+  for (const [tiles, sel] of [['shapeTiles', 'shape'], ['frameTiles', 'frame'], ['profileTiles', 'profile']])
+    for (const b of $(tiles).querySelectorAll('button')) b.setAttribute('aria-pressed', b.dataset.v === $(sel).value || (b.dataset.v === 'example' && !!fig()));
+  $('logoSub').hidden = $('logoMore').hidden = !!fig(); $('mainL').hidden = kind() !== 'logo'; $('logoItem').hidden = $('logoXY').hidden = !isRect() || !trace;
+  $('logoHint').textContent = isRect() ? '⬆ Add your logo to the plate (optional)' : '⬆ Upload your logo: the stand takes its outline';
+  $('exampleL').hidden = !fig(); if (fig()) $('example').value = kind();
+  $('traceSize').hidden = $('traceMore').hidden = isRect(); $('boxSize').hidden = $('boxMore').hidden = !isRect();
+  $('labelBack').disabled = !state.label;
+  const qrOn = $('qrOn').checked;
+  $('qrSub').hidden = !qrOn; $('qrOffNote').hidden = qrOn; $('nfcNote').hidden = !$('nfcOn').checked;
+  plate = null;
+  let errs = [], warns = [], scanText = '';
+  const shape = shapeOpts(), qrText = qrOn ? qrContent() : '';
+  // the code is never smaller than its squares allow for what it holds
+  const min = qrText ? qrMinSize(qrText) : null;
+  $('qrSize').min = Math.max(18, Math.ceil((min || 18) * 2) / 2);
+  if (+$('qrSize').value < +$('qrSize').min) { $('qrSize').value = $('qrSize').min; }
+  syncNums();
+  $('qrMin').textContent = min ? `Squares ${(+$('qrSize').value / (min / S.QR_MIN_MODULE)).toFixed(2)} mm. For this ${wifi ? 'network' : 'link'} the code is at least ${min} mm, so each square is at least ${S.QR_MIN_MODULE} mm (2.5 widths of a 0.4 mm nozzle).` : '';
+  if (shape) {
+    try {
+      if (wasm.HEAPU8.length > HEAP_LIMIT) wasm = await init();
+      const size = +$('qrSize').value, label = lines($('qrLabel').value.trim(), S.LABEL_CAP);
+      if (!state.qr || !state.logo || !state.nfc || state.texts.some(t => t.x == null)) placeItems(buildPlate(wasm, { shape, qr: { text: 'x', size: 18, x: 0, y: 1000 }, logo: null, texts: [] }), qrText, size);
+      rings.texts = state.texts.map(t => lines(t.text.trim(), t.h) || []);
+      rings.logo = isRect() && trace ? place(trace.lines, { width: +$('logoSize').value, cx: 0, cy: 0, flipY: true }).rings : null;
+      plate = buildPlate(wasm, {
+        shape, qr: qrOn ? { text: qrText, size, ...state.qr, label, labelAt: state.label } : null,
+        logo: rings.logo ? { rings: rings.logo, ...state.logo } : null,
+        texts: state.texts.map((t, i) => ({ rings: rings.texts[i], x: t.x, y: t.y })),
+        nfc: $('nfcOn').checked ? state.nfc : null,
+      });
+      errs = [...plate.errors]; warns = [...plate.warnings];
+      if (qrOn && wifi && !$('ssid').value) errs = ['Type the WiFi network name.'];
+      const typed = [qrOn ? $('qrLabel').value : '', ...state.texts.map(t => t.text)].join('');
+      const missing = font ? missingGlyphs(font, typed) : [];
+      if (missing.length) warns.push(`These letters are not in the font and are left out: ${missing.join(' ')}. For Greek, pick Noto Sans under Look.`);
+      scanText = plate.scan ? `Scan check ✓ · squares ${(size / (min / S.QR_MIN_MODULE)).toFixed(2)} mm` : '';
+    } catch (e) { console.error(e); errs = ['This design could not be turned into a solid. Try a simpler image.']; plate = null; wasm = await init(); }
+  } else errs = kind() === 'logo' && !logoImg ? ['Upload a logo (or drop it on the page), or pick another shape.'] : [];
+  $('scan').textContent = scanText || (!qrOn || (plate && !errs.length) ? '' : plate ? 'Scan check ✗' : '');
+  $('scan').className = scanText ? 'ok' : 'bad';
+  $('buildErr').textContent = errs.join(' ');
+  $('warn').replaceChildren(...warns.map(w => Object.assign(document.createElement('li'), { textContent: w })));
+  for (const id of ['dlPause', 'dlAms', 'dlPlate']) $(id).disabled = !plate || errs.length > 0;
+  $('howto').textContent = plate ? `Plate: ${plate.hasTag ? `stop at ${PAUSES.tag} mm and press the NFC tag flat into the round pocket; ` : ''}stop at ${PAUSES.plate} mm and change colour; 0.20 mm layers. The base (${S.BASE_W} × ${S.BASE_D} mm, one colour) is on the QR Stand page on MakerWorld: print it once, every plate fits it.` : '';
+  drawEditor(); show3d();
+}
+
+// ---------- 2D editor (front of the plate) ----------
+const ed = $('ed'), ctx2 = ed.getContext('2d');
+let view2 = null, drag = null;
+// what can be dragged: key, its place, half its width and height
+function items() {
+  if (!plate) return [];
+  const size = +$('qrSize').value, out = $('qrOn').checked ? [{ k: 'qr', p: state.qr, half: [size / 2, size / 2] }] : [];
+  if (plate.label) out.push({ k: 'label', p: plate.label, half: plate.label.half });
+  state.texts.forEach((t, i) => { if (rings.texts[i]?.length) out.push({ k: 't' + i, p: t, half: halfOf(rings.texts[i]) }); });
+  if (rings.logo) out.push({ k: 'logo', p: state.logo, half: halfOf(rings.logo) });
+  if ($('nfcOn').checked) out.push({ k: 'nfc', p: state.nfc, half: [S.TAG_D / 2, S.TAG_D / 2] });
+  return out;
+}
+const placeOf = k => k === 'qr' ? state.qr : k === 'logo' ? state.logo : k === 'nfc' ? state.nfc : k === 'label' ? (state.label ??= { x: plate.label.x, y: plate.label.y }) : state.texts[+k.slice(1)];
+function drawEditor() {
+  const r = ed.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  ed.width = r.width * dpr; ed.height = r.height * dpr;
+  ctx2.setTransform(1, 0, 0, 1, 0, 0); ctx2.clearRect(0, 0, ed.width, ed.height);
+  if (!plate) { view2 = null; return; }
+  const all = plate.draw.outline.flat(), xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const s = Math.min(ed.width / (x1 - x0 + 20), (ed.height - 40 * dpr) / (y1 - y0 + 20));
+  view2 = { s, ox: ed.width / 2 - (x0 + x1) / 2 * s, oy: ed.height / 2 + 15 * dpr + (y0 + y1) / 2 * s, dpr };
+  ctx2.setTransform(s, 0, 0, -s, view2.ox, view2.oy);       // mm, y up
+  const path = polys => { const p = new Path2D(); for (const r of polys) { p.moveTo(...r[0]); for (const q of r.slice(1)) p.lineTo(...q); p.closePath(); } return p; };
+  ctx2.fillStyle = $('colBody').value; ctx2.fill(path(plate.draw.outline), 'evenodd');
+  ctx2.fillStyle = $('colDetail').value; ctx2.fill(path(plate.draw.relief), 'evenodd');
+  if (plate.draw.thin.length) { ctx2.fillStyle = '#e02020'; ctx2.fill(path(plate.draw.thin)); }
+  ctx2.lineWidth = 1.5 * dpr / s; ctx2.setLineDash([4 * dpr / s, 3 * dpr / s]);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  for (const it of items()) {
+    ctx2.strokeStyle = it.k === 'qr' ? (plate.errors.length ? '#e02020' : accent) : it.k === 'nfc' ? '#f0a020' : '#8b8b8b';
+    if (it.k !== 'nfc') { ctx2.strokeRect(it.p.x - it.half[0], it.p.y - it.half[1], 2 * it.half[0], 2 * it.half[1]); continue; }
+    ctx2.save(); ctx2.setLineDash([]); ctx2.lineWidth *= 2;                 // the NFC tag, hidden inside
+    ctx2.beginPath(); ctx2.arc(it.p.x, it.p.y, it.half[0], 0, 2 * Math.PI); ctx2.stroke();
+    ctx2.scale(1, -1); ctx2.fillStyle = '#f0a020'; ctx2.font = '5px sans-serif'; ctx2.textAlign = 'center';
+    ctx2.fillText('NFC', it.p.x, -(it.p.y + it.half[0] + 1.5)); ctx2.restore();
+  }
+  ctx2.setLineDash([]);
+  // where the handles are on screen (CSS px in the canvas), for try_page.mjs
+  const px = p => [(p.x * s + view2.ox) / dpr, (view2.oy - p.y * s) / dpr].map(Math.round).join();
+  for (const k of Object.keys(ed.dataset)) delete ed.dataset[k];
+  for (const it of items()) ed.dataset[it.k] = px(it.p);
+  // the position boxes show where things are
+  const show = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };
+  Object.assign($('qrX'), { min: Math.floor(x0), max: Math.ceil(x1) }); Object.assign($('qrY'), { min: 0, max: Math.ceil(y1) });
+  show('qrX', state.qr.x); show('qrY', state.qr.y);
+  if (plate.label) { show('labelX', r2(plate.label.x)); show('labelY', r2(plate.label.y)); }
+  if (rings.logo) { show('logoX', state.logo.x); show('logoY', state.logo.y); }
+  state.texts.forEach((t, i) => { if ($('textX' + i)) { show('textX' + i, t.x); show('textY' + i, t.y); } });
+}
+const toMm = e => { const r = ed.getBoundingClientRect(), d = view2.dpr; return [((e.clientX - r.left) * d - view2.ox) / view2.s, (view2.oy - (e.clientY - r.top) * d) / view2.s]; };
+// the item under the pointer, with 2 mm to spare; the smallest one wins where they overlap
+const hit = (x, y) => items().filter(it => Math.abs(x - it.p.x) <= it.half[0] + 2 && Math.abs(y - it.p.y) <= it.half[1] + 2)
+  .sort((a, b) => a.half[0] * a.half[1] - b.half[0] * b.half[1])[0];
+ed.addEventListener('pointerdown', e => {
+  if (!view2) return;
+  const [x, y] = toMm(e), it = hit(x, y);
+  if (!it) return;
+  const p = placeOf(it.k);
+  drag = { p, dx: x - p.x, dy: y - p.y }; ed.setPointerCapture(e.pointerId); ed.style.cursor = 'grabbing'; e.preventDefault();
+});
+ed.addEventListener('pointermove', e => {
+  if (!drag) { if (view2) ed.style.cursor = hit(...toMm(e)) ? 'grab' : 'default'; return; }
+  const [x, y] = toMm(e); drag.p.x = r2(x - drag.dx); drag.p.y = r2(y - drag.dy);
+  drawEditor(); soon(rebuild);
+});
+ed.addEventListener('pointerup', () => { if (drag) { drag = null; ed.style.cursor = 'grab'; rebuild(); } });
+const typed = (id, set) => $(id).addEventListener('change', () => { const v = +$(id).value; if (Number.isFinite(v) && $(id).value !== '') { set(v); rebuild(); } });
+typed('qrX', v => { state.qr.x = v; }); typed('qrY', v => { state.qr.y = v; });
+typed('labelX', v => { placeOf('label').x = v; }); typed('labelY', v => { placeOf('label').y = v; });
+typed('logoX', v => { state.logo.x = v; }); typed('logoY', v => { state.logo.y = v; });
+$('labelBack').addEventListener('click', () => { state.label = null; rebuild(); });
+new ResizeObserver(drawEditor).observe(ed);
+
+// ---------- 3D preview ----------
+const view = $('view'), renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(devicePixelRatio); view.append(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 1, 3000); camera.up.set(0, 0, 1); camera.position.set(-180, -360, 200);
+const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, 0, 60); controls.update();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x9a9a96, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-300, -400, 450); scene.add(sun);
+const group = new THREE.Group(); scene.add(group);
+const draw3 = () => renderer.render(scene, camera);
+controls.addEventListener('change', draw3);
+window.view3d = { camera, controls, draw3, group };    // for tools/listing_shots.mjs
+new ResizeObserver(() => { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); draw3(); }).observe(view);
+
+function part({ positions: v, indices: t }, split) {         // body colour up to `split`, detail colour above
+  const body = new THREE.Color($('colBody').value), det = new THREE.Color($('colDetail').value);
+  const pos3 = new Float32Array(t.length * 3), col = new Float32Array(t.length * 3);
+  for (let i = 0; i < t.length; i += 3) {
+    const z = (v[t[i] * 3 + 2] + v[t[i + 1] * 3 + 2] + v[t[i + 2] * 3 + 2]) / 3, c = z > split + 0.01 ? det : body;
+    for (let k = 0; k < 3; k++) { pos3.set(v.subarray(t[i + k] * 3, t[i + k] * 3 + 3), (i + k) * 3); col.set([c.r, c.g, c.b], (i + k) * 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos3, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }));
+}
+function show3d() {
+  for (const o of group.children) { o.geometry.dispose(); o.material.dispose(); }
+  group.clear();
+  if (plate) {
+    const f = part(plate.mesh, S.BODY);                      // stand the plate up in the slot (the base's middle), front facing the viewer
+    f.matrixAutoUpdate = false;
+    f.matrix.makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(-plate.tab.x, S.BODY / 2, S.BASE_H);
+    group.add(f);
+  }
+  group.add(part(base.mesh, S.BASE_H));
+  draw3();
+}
+
+// ---------- inputs ----------
+let timer;
+const soon = fn => { clearTimeout(timer); timer = setTimeout(fn, 120); };
+const loadImg = async src => { const img = new Image(); img.src = typeof src === 'string' ? src : URL.createObjectURL(src); await img.decode(); return img; };
+const resetPlaces = () => { state.qr = state.label = state.logo = state.nfc = null; for (const t of state.texts) t.x = t.y = null; };
+const START = { link: 'https://dimange.github.io/qrstand/', label: 'SCAN ME' };   // what the page opens with
+const figDefaults = () => { $('width').value = last.width = fig().width; $('qrSize').value = fig().qrSize; };
+// A profile fills in the link and the label, but only over an empty field or another profile's example.
+$('profile').addEventListener('change', () => {
+  const p = PROFILES[$('profile').value], ours = k => !$(k).value.trim() || [START, ...Object.values(PROFILES)].some(q => q[k === 'link' ? 'link' : 'label'] === $(k).value);
+  if (ours('link')) $('link').value = p.link;
+  if (ours('qrLabel')) $('qrLabel').value = p.label;
+  rebuild();
+});
+async function useLogo(file) {
+  logoImg = null; trace = null; resetPlaces();
+  try { if (file) { logoImg = await loadImg(file); traceLogo(); } } catch { $('logoErr').textContent = 'This file could not be read as an image.'; }
+  rebuild();
+}
+$('logo').addEventListener('change', e => { const f = e.target.files[0]; $('logoName').textContent = f ? f.name : 'PNG, JPG or SVG · or drop it anywhere on the page'; useLogo(f); });
+$('logoClear').addEventListener('click', () => { $('logo').value = ''; $('logo').dispatchEvent(new Event('change')); });
+$('shape').addEventListener('change', async () => {
+  resetPlaces(); traceLogo();
+  if (fig()) { figDefaults(); await loadFigure(kind()); }
+  rebuild();
+});
+// tiles pick the value of the (hidden) select next to them
+for (const [tiles, sel] of [['shapeTiles', 'shape'], ['frameTiles', 'frame'], ['profileTiles', 'profile']])
+  $(tiles).addEventListener('click', e => {
+    const b = e.target.closest('button'), v = b?.dataset.v === 'example' ? $('example').value : b?.dataset.v;
+    if (v === 'logo' && !logoImg) $('logo').click();
+    if (v && v !== $(sel).value) { $(sel).value = v; $(sel).dispatchEvent(new Event('change')); }
+  });
+$('example').addEventListener('change', () => { $('shape').value = $('example').value; $('shape').dispatchEvent(new Event('change')); });
+for (const id of ['thr', 'blur', 'main', 'inv']) $(id).addEventListener('input', () => soon(() => { traceLogo(); rebuild(); }));
+// size sliders scale what is on the plate with them
+const last = {};
+for (const id of ['width', 'boxW', 'boxH']) {
+  last[id] = +$(id).value;
+  $(id).addEventListener('input', () => {
+    const f = +$(id).value / last[id]; last[id] = +$(id).value;
+    if (id === 'boxH') rescale(1, f); else if (id === 'boxW') { for (const p of [state.qr, state.label, state.logo, ...state.texts]) if (p && p.x != null) p.x = r2(p.x * f); }
+    else rescale(f, f);
+    syncNums(); soon(rebuild);
+  });
+}
+for (const id of ['border', 'close', 'radius', 'frameW']) $(id).addEventListener('input', () => soon(rebuild));
+$('frame').addEventListener('change', rebuild);
+$('qrOn').addEventListener('change', () => { state.logo = null; rebuild(); });
+$('nfcOn').addEventListener('change', rebuild);
+for (const id of ['link', 'ssid', 'pass', 'sec', 'qrSize', 'qrLabel', 'logoSize']) $(id).addEventListener('input', () => soon(rebuild));
+for (const id of ['colBody', 'colDetail']) $(id).addEventListener('input', () => { drawEditor(); show3d(); });
+$('font').addEventListener('change', async () => { font = parseFont(await (await fetch($('font').value)).arrayBuffer()); rebuild(); });
+function setTheme(light) {
+  if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+  $('theme').textContent = light ? 'Dark' : 'Light';
+  try { localStorage.setItem('theme', light ? 'light' : 'dark'); } catch {}
+  drawEditor();
+}
+$('theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme !== 'light'));
+$('theme').textContent = document.documentElement.dataset.theme === 'light' ? 'Dark' : 'Light';
+// drop an image anywhere: it becomes the logo (the outline shape, unless a rectangle is picked)
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+addEventListener('dragenter', e => { if (hasFiles(e)) { dragDepth++; document.body.classList.add('drop'); } });
+addEventListener('dragleave', e => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('drop'); } });
+addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('drop');
+  if (fig()) $('shape').value = 'logo';
+  useLogo(e.dataTransfer.files[0]);
+});
+
+// ---------- downloads ----------
+function save(data, name, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);   // revoking at once can cancel the download in Safari
+}
+$('dlPlate').addEventListener('click', () => save(plate.stl, `plate__pause_${PAUSES.plate}_colour.stl`, 'model/stl'));
+let settings3mf;
+async function save3mf(kind3, name) {
+  try {
+    settings3mf ??= await (await fetch('bambu_settings.json')).json();
+    // the two picked colours become the two filaments, with the larger purge volume both ways
+    const colours = [$('colBody').value.toUpperCase(), $('colDetail').value.toUpperCase()], m = settings3mf.flush_volumes_matrix, big = String(Math.max(+m[1], +m[2]));
+    const settings = { ...settings3mf, filament_colour: colours, filament_multi_colour: colours, flush_volumes_matrix: ['0', big, big, '0'] };
+    save(project(settings, plate, kind3), name, 'model/3mf');
+  } catch (e) { console.error(e); $('buildErr').textContent = 'The 3MF file could not be made. The STL downloads still work.'; }
+}
+$('dlPause').addEventListener('click', () => save3mf('pause', 'qr_stand__no_AMS_pauses.3mf'));
+$('dlAms').addEventListener('click', () => save3mf('colour', 'qr_stand__AMS.3mf'));
+
+// ---------- start: a pink rectangle whose code opens this page ----------
+$('shape').value = 'rect'; $('profile').value = 'custom';
+$('link').value = START.link; $('qrLabel').value = START.label; $('qrSize').value = 36;
+font = parseFont(await (await fetch($('font').value)).arrayBuffer());
+base = buildBase(wasm);                          // only shown in the preview; the base itself is on MakerWorld
+textBlocks(); rebuild();
+</script>
+</body>
+</html>
