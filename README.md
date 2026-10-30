@@ -1,4 +1,4 @@
-# QR Stand maker
+# ShapeQR maker
 
 Make a 3D-printed QR code stand in your browser: a rectangle, your own logo's outline, or a ready-made shape,
 with your link, a line of text under the code and any words you like.
@@ -15,7 +15,7 @@ The stand is two parts: a **plate** that carries the QR code, and a small **base
 the plate. It prints in **two colours on a single-filament printer**, with one pause and a filament swap at
 4.2 mm. No AMS needed, though it works with one too.
 
-The base is the same for every plate (100 × 50 × 10 mm, one colour). Download it once from the QR Stand page on
+The base is the same for every plate (100 × 50 × 10 mm, one colour); the arrow underneath points to the front, the way the code faces. Download it once from the ShapeQR page on
 MakerWorld; every plate you make here fits it.
 
 | Rectangle | Example shape: wine glass |
@@ -35,7 +35,7 @@ MakerWorld; every plate you make here fits it.
    pocket for a 25 mm round tag (NTAG213/215, up to 1.2 mm thick); the printer stops at 3.2 mm to drop it in.
    Write your link onto it afterwards with the free NFC Tools app.
 4. **Your words:** add lines of text anywhere. Drag the code, its text and your words on the front view.
-5. **Look:** font and the two colours, shown in the 3D preview and saved in the 3MF.
+5. **Look:** one of eight fonts (or upload your own .ttf/.otf/.woff) and the two colours, shown in the 3D preview and saved in the 3MF.
 6. Download:
 
 | Download | For | What you do |

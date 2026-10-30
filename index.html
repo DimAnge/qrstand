@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QR stand maker</title>
+<title>ShapeQR maker</title>
 <link rel="icon" href="data:,">
 <!-- Serve this folder: python3 -m http.server 8767 --directory web, then http://localhost:8767/ (not from file://) -->
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
@@ -86,8 +86,8 @@
 <body>
 <main>
   <form id="f" onsubmit="return false">
-    <div class="top"><h1>QR stand<br>maker</h1><button type="button" id="theme" aria-label="Switch between dark and light">Light</button></div>
-    <p class="intro">Upload your logo and the stand takes its shape, or pick a rectangle. Type your link, download. Two colours with one filament change; every plate fits the same base (on the QR Stand page on MakerWorld). Runs in your browser; nothing is uploaded.</p>
+    <div class="top"><h1>ShapeQR<br>maker</h1><button type="button" id="theme" aria-label="Switch between dark and light">Light</button></div>
+    <p class="intro">Upload your logo and the stand takes its shape, or pick a rectangle. Type your link, download. Two colours with one filament change; every plate fits the same base (on the ShapeQR page on MakerWorld). Runs in your browser; nothing is uploaded.</p>
 
     <fieldset>
       <legend><b>1</b> Shape</legend>
@@ -185,7 +185,17 @@
       <legend><b>4</b> Look</legend>
       <label>Font
         <select id="font"><option value="vendor/fonts/Poppins-Bold.ttf">Poppins Bold</option>
-          <option value="vendor/fonts/NotoSans-Bold.ttf">Noto Sans Bold (Greek and more)</option></select></label>
+          <option value="vendor/fonts/NotoSans-Bold.ttf">Noto Sans Bold (Greek and more)</option>
+          <option value="vendor/fonts/ArchivoBlack-Regular.ttf">Archivo Black (heavy)</option>
+          <option value="vendor/fonts/Anton-Regular.ttf">Anton (tall)</option>
+          <option value="vendor/fonts/Bungee-Regular.ttf">Bungee (blocky)</option>
+          <option value="vendor/fonts/Righteous-Regular.ttf">Righteous (rounded)</option>
+          <option value="vendor/fonts/AlfaSlabOne-Regular.ttf">Alfa Slab One (slab serif)</option>
+          <option value="vendor/fonts/PermanentMarker-Regular.ttf">Permanent Marker (handwritten)</option>
+          <option value="own">⬆ Your own font…</option></select></label>
+      <input type="file" id="fontFile" accept=".ttf,.otf,.woff" hidden>
+      <small>Your own font: a .ttf, .otf or .woff file. Bold fonts print best; strokes thinner than about 0.6 mm are lost.</small>
+      <p class="err" id="fontErr" role="alert"></p>
       <div id="cols"><label>Body <input type="color" id="colBody" value="#f55a74"></label><label>Detail <input type="color" id="colDetail" value="#ffffff"></label></div>
       <small>Shown in the preview and saved in the 3MF files as the two filament colours.</small>
     </fieldset>
@@ -213,7 +223,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { parse as parseFont } from './vendor/opentype.module.js';
 import { init } from './core.js';
 import { textRings, place, missingGlyphs, MAX_EDGES } from './shapes.js';
-import { S, PAUSES, PROFILES, FIGURES, wifiText, printable, qrMinSize, qrBorder, inkMask, keepMain, traceFigure, buildPlate, buildBase, project } from './stand.js?v=6';   // ?v: a new address, so browsers that kept the old file (before serve.py) fetch this one
+import { S, PAUSES, PROFILES, FIGURES, wifiText, printable, qrMinSize, qrBorder, inkMask, keepMain, traceFigure, buildPlate, buildBase, project } from './stand.js?v=9';   // ?v: a new address, so browsers that kept the old file (before serve.py) fetch this one
 
 const $ = id => document.getElementById(id);
 const HEAP_LIMIT = 256 * 2 ** 20;               // as on TapStand: the wasm heap only grows, so start a fresh one past this
@@ -379,7 +389,7 @@ async function rebuild() {
   $('buildErr').textContent = errs.join(' ');
   $('warn').replaceChildren(...warns.map(w => Object.assign(document.createElement('li'), { textContent: w })));
   for (const id of ['dlPause', 'dlAms', 'dlPlate']) $(id).disabled = !plate || errs.length > 0;
-  $('howto').textContent = plate ? `Plate: ${plate.hasTag ? `stop at ${PAUSES.tag} mm and press the NFC tag flat into the round pocket; ` : ''}stop at ${PAUSES.plate} mm and change colour; 0.20 mm layers. The base (${S.BASE_W} × ${S.BASE_D} mm, one colour) is on the QR Stand page on MakerWorld: print it once, every plate fits it.` : '';
+  $('howto').textContent = plate ? `Plate: ${plate.hasTag ? `stop at ${PAUSES.tag} mm and press the NFC tag flat into the round pocket; ` : ''}stop at ${PAUSES.plate} mm and change colour; 0.20 mm layers. The base (${S.BASE_W} × ${S.BASE_D} mm, one colour) is on the ShapeQR page on MakerWorld: print it once, every plate fits it.` : '';
   drawEditor(); show3d();
 }
 
@@ -487,9 +497,10 @@ function show3d() {
   for (const o of group.children) { o.geometry.dispose(); o.material.dispose(); }
   group.clear();
   if (plate) {
-    const f = part(plate.mesh, S.BODY);                      // stand the plate up in the slot (the base's middle), front facing the viewer
+    const f = part(plate.mesh, S.BODY);                      // stand the plate up in the slot, front facing the viewer, leaning back as the slot does
     f.matrixAutoUpdate = false;
-    f.matrix.makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(-plate.tab.x, S.BODY / 2, S.BASE_H);
+    f.matrix.makeTranslation(0, S.SLOT_Y, S.BASE_H).multiply(new THREE.Matrix4().makeRotationX(-S.TILT * Math.PI / 180))
+      .multiply(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(-plate.tab.x, S.BODY / 2, 0));
     group.add(f);
   }
   group.add(part(base.mesh, S.BASE_H));
@@ -548,7 +559,24 @@ $('qrOn').addEventListener('change', () => { state.logo = null; rebuild(); });
 $('nfcOn').addEventListener('change', rebuild);
 for (const id of ['link', 'ssid', 'pass', 'sec', 'qrSize', 'qrLabel', 'logoSize']) $(id).addEventListener('input', () => soon(rebuild));
 for (const id of ['colBody', 'colDetail']) $(id).addEventListener('input', () => { drawEditor(); show3d(); });
-$('font').addEventListener('change', async () => { font = parseFont(await (await fetch($('font').value)).arrayBuffer()); rebuild(); });
+// "Your own font" opens the file picker; the font read from the file is kept as an option of its own
+let ownFont = null, fontWas = $('font').value;
+$('font').addEventListener('change', async () => {
+  const v = $('font').value;
+  if (v === 'own') { $('font').value = fontWas; $('fontFile').click(); return; }
+  fontWas = v; $('fontErr').textContent = '';
+  font = v === 'file' ? ownFont : parseFont(await (await fetch(v)).arrayBuffer());
+  rebuild();
+});
+$('fontFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try { ownFont = parseFont(await f.arrayBuffer()); } catch { $('fontErr').textContent = 'This file could not be read as a font. Use a .ttf, .otf or .woff file.'; return; }
+  let o = $('font').querySelector('option[value=file]');
+  if (!o) { o = new Option('', 'file'); $('font').querySelector('option[value=own]').before(o); }
+  o.textContent = f.name.replace(/\.[^.]+$/, '');
+  $('font').value = 'file'; $('font').dispatchEvent(new Event('change'));
+});
 function setTheme(light) {
   if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
   $('theme').textContent = light ? 'Dark' : 'Light';

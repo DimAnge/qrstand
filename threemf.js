@@ -75,30 +75,35 @@ export function plateOrigin(i, n, bed) {
 }
 
 // objects: [{ name, mesh: {positions, indices}, plate: 0-based, cx, cy, filament?: 1|2, settings?: {key: value} }]
+//          parts: [{ name, mesh }] instead of mesh: one object whose parts can each be deleted in the slicer.
 //          cx, cy = where the centre of the object's footprint goes on its plate (mm from the plate corner).
 //          settings = print settings that apply to this object only (for example sparse_infill_density).
 // plates:  [{ events: [{ z, kind: 'pause' | 'colour' }] }]   z = top of the first layer printed after the event.
 // settings: a complete Bambu Studio project_settings object (see bambu_settings.json).
 export function project3mf({ objects, plates, settings, bed = 180, deflate }) {
   const files = [], items = [], rels = [], resources = [], conf = [], plateObjs = plates.map(() => []);
+  let nextId = 1;
   objects.forEach((ob, k) => {
-    const meshId = 2 * k + 1, objId = 2 * k + 2, v = ob.mesh.positions, t = ob.mesh.indices;
+    const parts = ob.parts || [{ name: ob.name, mesh: ob.mesh }], meshIds = parts.map(() => nextId++), objId = nextId++;
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-    for (let i = 0; i < v.length; i++) { lo[i % 3] = Math.min(lo[i % 3], v[i]); hi[i % 3] = Math.max(hi[i % 3], v[i]); }
+    for (const { mesh: { positions: v } } of parts) for (let i = 0; i < v.length; i++) { lo[i % 3] = Math.min(lo[i % 3], v[i]); hi[i % 3] = Math.max(hi[i % 3], v[i]); }
     const [px, py] = plateOrigin(ob.plate, plates.length, bed);
     const tx = px + ob.cx - (lo[0] + hi[0]) / 2, ty = py + ob.cy - (lo[1] + hi[1]) / 2, tz = -lo[2];
-    let xml = `${XML}<model ${NS}>\n <metadata name="BambuStudio:3mfVersion">1</metadata>\n <resources>\n  <object id="${meshId}" p:UUID="${uuid(meshId, 1)}" type="model">\n   <mesh>\n    <vertices>\n`;
-    const chunks = [xml];
-    for (let i = 0; i < v.length; i += 3) chunks.push(`     <vertex x="${num(v[i])}" y="${num(v[i + 1])}" z="${num(v[i + 2])}"/>\n`);
-    chunks.push('    </vertices>\n    <triangles>\n');
-    for (let i = 0; i < t.length; i += 3) chunks.push(`     <triangle v1="${t[i]}" v2="${t[i + 1]}" v3="${t[i + 2]}"/>\n`);
-    chunks.push('    </triangles>\n   </mesh>\n  </object>\n </resources>\n <build/>\n</model>\n');
+    const chunks = [`${XML}<model ${NS}>\n <metadata name="BambuStudio:3mfVersion">1</metadata>\n <resources>\n`];
+    parts.forEach(({ mesh: { positions: v, indices: t } }, n) => {
+      chunks.push(`  <object id="${meshIds[n]}" p:UUID="${uuid(meshIds[n], 1)}" type="model">\n   <mesh>\n    <vertices>\n`);
+      for (let i = 0; i < v.length; i += 3) chunks.push(`     <vertex x="${num(v[i])}" y="${num(v[i + 1])}" z="${num(v[i + 2])}"/>\n`);
+      chunks.push('    </vertices>\n    <triangles>\n');
+      for (let i = 0; i < t.length; i += 3) chunks.push(`     <triangle v1="${t[i]}" v2="${t[i + 1]}" v3="${t[i + 2]}"/>\n`);
+      chunks.push('    </triangles>\n   </mesh>\n  </object>\n');
+    });
+    chunks.push(' </resources>\n <build/>\n</model>\n');
     const path = `/3D/Objects/object_${k + 1}.model`;
     files.push({ name: path.slice(1), data: chunks.join('') });
     rels.push(` <Relationship Target="${path}" Id="rel-${k + 1}" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n`);
-    resources.push(`  <object id="${objId}" p:UUID="${uuid(objId, 2)}" type="model">\n   <components>\n    <component p:path="${path}" objectid="${meshId}" p:UUID="${uuid(meshId, 3)}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n   </components>\n  </object>\n`);
+    resources.push(`  <object id="${objId}" p:UUID="${uuid(objId, 2)}" type="model">\n   <components>\n${meshIds.map(id => `    <component p:path="${path}" objectid="${id}" p:UUID="${uuid(id, 3)}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n`).join('')}   </components>\n  </object>\n`);
     items.push(`  <item objectid="${objId}" p:UUID="${uuid(objId, 4)}" transform="1 0 0 0 1 0 0 0 1 ${num(tx)} ${num(ty)} ${num(tz)}" printable="1"/>\n`);
-    conf.push(`  <object id="${objId}">\n    <metadata key="name" value="${esc(ob.name)}"/>\n    <metadata key="extruder" value="${ob.filament || 1}"/>\n${Object.entries(ob.settings || {}).map(([key, v]) => `    <metadata key="${esc(key)}" value="${esc(v)}"/>\n`).join('')}    <part id="${meshId}" subtype="normal_part">\n      <metadata key="name" value="${esc(ob.name)}"/>\n      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n    </part>\n  </object>\n`);
+    conf.push(`  <object id="${objId}">\n    <metadata key="name" value="${esc(ob.name)}"/>\n    <metadata key="extruder" value="${ob.filament || 1}"/>\n${Object.entries(ob.settings || {}).map(([key, v]) => `    <metadata key="${esc(key)}" value="${esc(v)}"/>\n`).join('')}${parts.map((part, n) => `    <part id="${meshIds[n]}" subtype="normal_part">\n      <metadata key="name" value="${esc(part.name)}"/>\n      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n    </part>\n`).join('')}  </object>\n`);
     plateObjs[ob.plate].push(objId);
   });
 

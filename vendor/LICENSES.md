@@ -10,3 +10,6 @@ Each licence text is in `licenses/` (Poppins: in `fonts/`), copied from the pack
 - qrcode-generator (qrcode.js) — MIT — `licenses/qrcode-LICENSE.txt` — https://github.com/kazuhikoarase/qrcode-generator
 - jsQR 1.4.0 (jsQR.js: dist/jsQR.js wrapped as an ES module) — Apache-2.0 — `licenses/jsQR-LICENSE.txt` — https://github.com/cozmo/jsQR
 - Roboto (Roboto.ttf, the page's headings) — SIL Open Font License 1.1 — `licenses/Roboto-OFL.txt` — https://github.com/googlefonts/roboto-classic
+- Archivo Black, Anton, Bungee, Righteous, Alfa Slab One — SIL Open Font License 1.1 —
+  `licenses/<name>-OFL.txt` — from https://github.com/google/fonts (ofl/)
+- Permanent Marker — Apache-2.0 — `licenses/permanentmarker-LICENSE.txt` — from https://github.com/google/fonts (apache/)

@@ -10,13 +10,16 @@ import { project3mf } from './threemf.js';
 qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
 export const S = {
-  BODY: 4.0, RELIEF: 1.2, SINK: 0.2,            // detail from 4.0 to 5.2 mm; SINK overlaps it into the body
+  BODY: 4.0, RELIEF: 1.6, SINK: 0.2,            // detail from 4.0 to 5.6 mm (8 layers, sturdy); SINK overlaps it into the body
   EDGE: 0.6,                                    // detail stays this far in from the outline
   CUT: 1.5,                                     // the lowest 1.5 mm of a traced shape is cut off so it stands flat
   CLOSE: 10,                                    // background layer: gaps in a traced shape narrower than this are filled with plate
   TAB_W: 60, TAB_H: 8, CLEAR: 0.15,             // tab under every plate, and the slot it plugs into
   FOOT_H: 6,                                    // a plate whose bottom is narrower than the tab gets a foot this tall
-  BASE_W: 100, BASE_D: 50, BASE_H: 10, BASE_R: 8, // the base: the same for every plate, slot in the middle
+  BASE_W: 100, BASE_D: 50, BASE_H: 10, BASE_R: 8, // the base: the same for every plate
+  TILT: 2, SLOT_Y: -3,                          // the slot leans back 2°: the plate rests on its back wall (2-4° with
+                                                 // the slot's play), never forwards, and still looks straight; more
+                                                 // looked awkward on tall plates. Mouth 3 mm in front of the middle (-y)
   FRAME_IN: 3,                                  // rectangle frames: this far in from the edge
   TAG_D: 26.6, TAG_FLOOR: 1.6, TAG_DEPTH: 1.4, TAG_WALL: 2,   // NFC pocket for a 25 mm tag up to 1.2 mm thick, 1.6..3.0 mm up
   FIT: 170,                                     // A1 mini bed is 180; parts are kept under this
@@ -330,7 +333,9 @@ export function buildPlate(wasm, o) {
 }
 
 // ---------- base ----------
-// One base for every plate: BASE_W x BASE_D x BASE_H, one colour, a slot in the middle for the TAB_W tab.
+// One base for every plate: BASE_W x BASE_D x BASE_H, one colour, a slot for the TAB_W tab leaning back TILT degrees
+// (top towards +y, the back; the front faces -y), its mouth centred SLOT_Y from the middle; an arrow underneath
+// points to the front.
 // Returns { mesh, stl }.
 export function buildBase(wasm) {
   const { Manifold, CrossSection: CS } = wasm, R = S.BASE_R, W = S.BASE_W, D = S.BASE_D;
@@ -339,7 +344,11 @@ export function buildBase(wasm) {
     grow(foot, -1).extrude(1), foot.extrude(S.BASE_H - 2).translate([0, 0, 1]), grow(foot, -1).extrude(1).translate([0, 0, S.BASE_H - 1]),
   ]);                                             // 1 mm steps round the top and bottom edges
   const c = S.CLEAR;
-  solid = solid.subtract(Manifold.cube([S.TAB_W + 2 * c, S.BODY + 2 * c, S.TAB_H + 1], true).translate([0, 0, S.BASE_H - S.TAB_H / 2 + 0.5]));
+  solid = solid.subtract(Manifold.cube([S.TAB_W + 2 * c, S.BODY + 2 * c, S.TAB_H + 1], true).translate([0, 0, 0.5 - (S.TAB_H + 1) / 2])
+    .rotate([-S.TILT, 0, 0]).translate([0, S.SLOT_Y, S.BASE_H]));   // turned about the middle of its mouth
+  // underneath, hidden on the counter: an arrow 0.6 mm deep pointing to the front, so the base goes the right way round
+  const arrow = new CS([[[-2, 14], [-2, 3], [-7, 3], [0, -5], [7, 3], [2, 3], [2, 14]]], 'Positive');
+  solid = solid.subtract(arrow.extrude(0.6).translate([0, 0, -0.01]));
   const m = solid.getMesh(), mesh = { positions: m.vertProperties, indices: m.triVerts };
   return { mesh, stl: toSTL(mesh) };
 }
